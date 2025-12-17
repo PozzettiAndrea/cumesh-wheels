@@ -116,6 +116,20 @@ jobs:
           git config --global url."https://github.com/".insteadOf "git@github.com:"
           git clone https://github.com/JeffreyXiang/CuMesh.git --recursive
 
+      - name: Patch for Windows ssize_t
+        shell: powershell
+        run: |
+          $file = "CuMesh/third_party/cubvh/include/cpu/api_cpu.h"
+          $content = Get-Content $file -Raw
+          $patch = @"
+          #ifdef _MSC_VER
+          #include <BaseTsd.h>
+          typedef SSIZE_T ssize_t;
+          #endif
+          "@
+          $content = $patch + "`n" + $content
+          Set-Content $file $content
+
       - name: Build wheel
         shell: cmd
         run: |
