@@ -3,6 +3,8 @@ name: Build CUDA 13.0 + PyTorch 2.9.1
 on:
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/build-cu130-torch291.yml'
     tags: ['v*']
   workflow_dispatch:
 
@@ -68,15 +70,26 @@ jobs:
           python -c "import torch; print(f'PyTorch: {torch.__version__}')"
           echo "CUDA_HOME=$CUDA_HOME"
 
-      - name: Clone and build CuMesh
+      - name: Clone CuMesh
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git clone https://github.com/JeffreyXiang/CuMesh.git --recursive
+
+      - name: Patch for M=0 kernel launch bug
+        run: |
+          # Fix cudaErrorInvalidConfiguration when M=0 (can't launch kernel with 0 blocks)
+          cd CuMesh/src/remesh
+          sed -i 's/get_vertex_num<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) get_vertex_num<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
+          sed -i 's/set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
+          echo "Patched svox2vert.cu for M=0 edge case"
+
+      - name: Build CuMesh
         run: |
           export CUDA_HOME=/usr/local/cuda-13.0
           export CUDA_PATH=/usr/local/cuda-13.0
           export FORCE_CUDA=1
           export TORCH_CUDA_ARCH_LIST="${{ env.TORCH_CUDA_ARCH_LIST }}"
           export CXXFLAGS="-D_GLIBCXX_USE_CXX11_ABI=1"
-          git config --global url."https://github.com/".insteadOf "git@github.com:"
-          git clone https://github.com/JeffreyXiang/CuMesh.git --recursive
           cd CuMesh
           pip install --no-build-isolation .
           python setup.py bdist_wheel
@@ -117,7 +130,7 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Installing CUDA toolkit..."
-          Start-Process -FilePath "cuda_installer.exe" -ArgumentList "-s", "-n", "nvcc_13.0", "cudart_13.0", "cusparse_dev_13.0", "cublas_dev_13.0", "curand_dev_13.0", "cufft_dev_13.0", "cusolver_dev_13.0", "thrust_13.0", "nvtx_13.0" -Wait -NoNewWindow
+          Start-Process -FilePath "cuda_installer.exe" -ArgumentList "-s", "-n", "nvcc_13.0", "cudart_13.0", "visual_studio_integration_13.0", "cusparse_dev_13.0", "cublas_dev_13.0", "curand_dev_13.0", "cufft_dev_13.0", "cusolver_dev_13.0", "thrust_13.0", "nvtx_13.0" -Wait -NoNewWindow
           $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.0"
           if (Test-Path "$cudaPath\bin\nvcc.exe") {
             Write-Host "CUDA installed successfully"
@@ -173,6 +186,15 @@ jobs:
           "@
           $content = $patch + "`n" + $content
           Set-Content $file $content
+
+      - name: Patch for M=0 kernel launch bug
+        shell: bash
+        run: |
+          # Fix cudaErrorInvalidConfiguration when M=0 (can't launch kernel with 0 blocks)
+          cd CuMesh/src/remesh
+          sed -i 's/get_vertex_num<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) get_vertex_num<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
+          sed -i 's/set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
+          echo "Patched svox2vert.cu for M=0 edge case"
 
       - name: Build wheel
         shell: cmd
