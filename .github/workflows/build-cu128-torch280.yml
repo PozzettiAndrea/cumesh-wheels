@@ -83,6 +83,15 @@ jobs:
           sed -i 's/set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
           echo "Patched svox2vert.cu for M=0 edge case"
 
+      - name: Patch xatlas module name to avoid pybind11 conflicts
+        run: |
+          cd CuMesh
+          # Rename _xatlas to _cumesh_xatlas in setup.py to avoid conflicts with standalone xatlas package
+          sed -i 's/cumesh\._xatlas/cumesh._cumesh_xatlas/g' setup.py
+          # Update import in cumesh/xatlas.py
+          sed -i 's/from \. import _xatlas/from . import _cumesh_xatlas as _xatlas/' cumesh/xatlas.py
+          echo "Patched xatlas module name to _cumesh_xatlas"
+
       - name: Build CuMesh
         run: |
           export CUDA_HOME=/usr/local/cuda-12.8
@@ -180,6 +189,16 @@ jobs:
           sed -i 's/get_vertex_num<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) get_vertex_num<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
           sed -i 's/set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/if (M > 0) set_vertex<<<(M + BLOCK_SIZE - 1) \/ BLOCK_SIZE, BLOCK_SIZE>>>/g' svox2vert.cu
           echo "Patched svox2vert.cu for M=0 edge case"
+
+      - name: Patch xatlas module name to avoid pybind11 conflicts
+        shell: bash
+        run: |
+          cd CuMesh
+          # Rename _xatlas to _cumesh_xatlas in setup.py to avoid conflicts with standalone xatlas package
+          sed -i 's/cumesh\._xatlas/cumesh._cumesh_xatlas/g' setup.py
+          # Update import in cumesh/xatlas.py
+          sed -i 's/from \. import _xatlas/from . import _cumesh_xatlas as _xatlas/' cumesh/xatlas.py
+          echo "Patched xatlas module name to _cumesh_xatlas"
 
       - name: Build wheel
         shell: cmd
