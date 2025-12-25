@@ -227,6 +227,83 @@ jobs:
           sed -i 's/from \. import _xatlas/from . import _cumesh_xatlas as _xatlas/' cumesh/xatlas.py
           echo "Patched xatlas module name to _cumesh_xatlas"
 
+      - name: Patch setup.py for debug symbols
+        shell: bash
+        run: |
+          cd CuMesh
+          python << 'PATCH_SCRIPT'
+          with open('setup.py', 'r') as f:
+              content = f.read()
+
+          # Replace cxx compile args for MSVC with debug symbols
+          content = content.replace(
+              '"cxx": ["-O3", "-std=c++17"]',
+              '"cxx": ["/O2", "/Zi", "/std:c++17", "/EHsc"]'  # MSVC flags with debug symbols
+          )
+
+          # Add -Xcompiler /Zi to nvcc args for all extensions
+          content = content.replace(
+              '"nvcc": ["-O3","-std=c++17"] + cc_flag,',
+              '"nvcc": ["-O3","-std=c++17", "-Xcompiler", "/Zi"] + cc_flag,'
+          )
+
+          # Handle the cubvh extension with extended nvcc flags
+          content = content.replace(
+              '"nvcc": ["-O3","-std=c++17"] + cc_flag + [',
+              '"nvcc": ["-O3","-std=c++17", "-Xcompiler", "/Zi"] + cc_flag + ['
+          )
+
+          # Add extra_link_args to each CUDAExtension
+          import re
+
+          content = content.replace(
+              '''            extra_compile_args={
+                "cxx": ["/O2", "/Zi", "/std:c++17", "/EHsc"],  # MSVC flags with debug symbols
+                "nvcc": ["-O3","-std=c++17", "-Xcompiler", "/Zi"] + cc_flag,
+            }
+        ),''',
+              '''            extra_compile_args={
+                "cxx": ["/O2", "/Zi", "/std:c++17", "/EHsc"],  # MSVC flags with debug symbols
+                "nvcc": ["-O3","-std=c++17", "-Xcompiler", "/Zi"] + cc_flag,
+            },
+            extra_link_args=["/DEBUG:FULL"],  # Embed debug info reference in .pyd
+        ),'''
+          )
+
+          content = content.replace(
+              '''                ]
+            }
+        ),
+        CUDAExtension(
+            name='cumesh._xatlas',''',
+              '''                ],
+            },
+            extra_link_args=["/DEBUG:FULL"],  # Embed debug info reference in .pyd
+        ),
+        CUDAExtension(
+            name='cumesh._xatlas','''
+          )
+
+          content = content.replace(
+              '''            extra_compile_args={
+                "cxx": ["/O2", "/Zi", "/std:c++17", "/EHsc"],
+            }
+        ),
+    ],''',
+              '''            extra_compile_args={
+                "cxx": ["/O2", "/Zi", "/std:c++17", "/EHsc"],
+            },
+            extra_link_args=["/DEBUG:FULL"],  # Embed debug info reference in .pyd
+        ),
+    ],'''
+          )
+
+          with open('setup.py', 'w') as f:
+              f.write(content)
+
+          print("Patched setup.py for MSVC debug symbols")
+          PATCH_SCRIPT
+
       - name: Build wheel
         shell: cmd
         run: |
