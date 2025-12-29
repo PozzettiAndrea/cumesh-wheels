@@ -1,4 +1,4 @@
-name: Build CUDA 12.4 + PyTorch 2.5.1
+name: Build CUDA 12.4 + PyTorch 2.6.0
 
 on:
   push:
@@ -11,9 +11,9 @@ on:
 env:
   CUDA_VERSION: '12.4'
   CUDA_SHORT: '124'
-  PYTORCH_VERSION: '2.5.1'
-  TORCH_SHORT: '251'
-  TORCH_MM: '25'
+  PYTORCH_VERSION: '2.6.0'
+  TORCH_SHORT: '260'
+  TORCH_MM: '26'
   TORCH_CUDA_ARCH_LIST: '7.5;8.0;8.6;8.9;9.0'
 
 jobs:
@@ -109,7 +109,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.10', '3.11', '3.12']
+        python: ['3.11']
 
     steps:
       - uses: actions/checkout@v4
